@@ -1,16 +1,21 @@
+/**
+* Skylar Castator 2023
+* skylar.castator@gmail.com
+* Code to manage data from the magnetometer
+**/
 #include <QMC5883LCompass.h>
 
 QMC5883LCompass compass;
 
-void Setup_Compass()
+void setupCompass()
 {
   compass.init();
 }
 
-void Read_Compass()
+void readCompass()
 {
   int x, y, z, a, b;
-	char myArray[3];
+	char directionArray[3];
 	
 	compass.read();
   
@@ -22,7 +27,7 @@ void Read_Compass()
 	
 	b = compass.getBearing(a);
 
-	compass.getDirection(myArray, a);
+	compass.getDirection(directionArray, a);
   
 	Serial.print("X: ");
 	Serial.print(x);
@@ -40,9 +45,9 @@ void Read_Compass()
 	Serial.print(b);
 
 	Serial.print(" Direction: ");
-	Serial.print(myArray[0]);
-	Serial.print(myArray[1]);
-	Serial.print(myArray[2]);
+	Serial.print(directionArray[0]);
+	Serial.print(directionArray[1]);
+	Serial.print(directionArray[2]);
 
 	Serial.println();
 

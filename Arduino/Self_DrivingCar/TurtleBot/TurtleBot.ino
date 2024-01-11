@@ -1,28 +1,50 @@
+/**
+* Skylar Castator 2023
+* skylar.castator@gmail.com
+* Turtle bot is a simple autonomous vehicle that drives around until it reaches an obsticle and then rotates and drives a new direction.
+**/
+
 #import <Wire.h>
 
-void Setup_Compass();
-void Setup_Encoders();
-void Setup_Serial(int baud_rate);
-void Setup_Ultrasonic();
-void Setup_Motors();
+const int baudRate = 9600;
 
-int Update_Ultrasonic();
-void Read_Compass();
-void Read_From_Serial();
-void Move_Robot(int distance);
+unsigned long currentMillis;
+
+void setupCompass();
+void setupEncoders();
+void setupBluetooth(int baudRate);
+void setupDistanceSensor();
+void setupMotors();
+
+int updateDistanceSensor();
+void readCompass();
+void readBluetoothSerial();
+void sendBluetoothDistanceMessage(int distance);
+void updateMotors(unsigned long time);
+void hitObject (unsigned long time);
 
 void setup() {
   Wire.begin();
   //randomSeed(analogRead(3));
-  Setup_Compass();
-  Setup_Ultrasonic();
-  Setup_Serial(9600);
-  Setup_Motors();
+  Serial.begin(baudRate);
+  setupBluetooth(baudRate);
+  setupEncoders();
+  setupCompass();
+  setupDistanceSensor();
+  setupMotors();
 }
 
 void loop() {
-  int distance = Update_Ultrasonic();
-  Read_From_Serial();
-  Move_Robot(distance);
-  Read_Compass();
+  currentMillis = millis();
+
+  int distance = updateDistanceSensor();
+  readBluetoothSerial();
+  readCompass();
+  sendBluetoothDistanceMessage(distance);
+
+  if (distance >= 0 && distance <= 2)
+  {
+    hitObject(currentMillis);
+  }
+  updateMotors(currentMillis);
 }

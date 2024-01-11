@@ -1,92 +1,116 @@
+/**
+* Skylar Castator 2023
+* skylar.castator@gmail.com
+* Code to manage motor inputs
+**/
 
-#define enableA 5
-#define MotorA1 6
-#define MotorA2 7
+#define ENABLE_A 5
+#define MOTOR_A1 6
+#define MOTOR_A2 7
+#define ENABLE_B 8
+#define MOTOR_B1 9
+#define MOTOR_B2 10
 
-#define enableB 8
-#define MotorB1 9
-#define MotorB2 10
+enum motion {
+    FORWARD, REVERSE, TURNING, STOPPED  };
 
-void Setup_Motors()
+const unsigned long reverseTimer = 500;
+const unsigned long turningTimer = 200;
+
+motion motorState;
+unsigned long stateStartTime = 0;
+
+void setupMotors()
 {
-  pinMode(enableA, OUTPUT);
-  pinMode(MotorA1, OUTPUT);
-  pinMode(MotorA2, OUTPUT);
-  pinMode(enableB, OUTPUT);
-  pinMode(MotorB1, OUTPUT);
-  pinMode(MotorB2, OUTPUT);
-  
-  delay(200);
-  go_forward();
+  pinMode(ENABLE_A, OUTPUT);
+  pinMode(MOTOR_A1, OUTPUT);
+  pinMode(MOTOR_A2, OUTPUT);
+  pinMode(ENABLE_B, OUTPUT);
+  pinMode(MOTOR_B1, OUTPUT);
+  pinMode(MOTOR_B2, OUTPUT);
+  driveForward();
 }
 
-void Move_Robot(int distance)
+void updateMotors(unsigned long time)
 {
-  if (distance >= 0 && distance <= 2)
+  if (motorState == FORWARD)
   {
-    go_backwards();
-    delay(500);
-    /* Go left or right to avoid the obstacle*/
-    if (random(2) == 0) {  // Generates 0 or 1, randomly        
-      go_right();  // Turn right for one second
-    }
-    else {
-      go_left();  // Turn left for one second
-    }
-    delay(400);
-    go_forward();  // Move forward
+    stateStartTime = time;
   }
-  delay(50);
+  else if (motorState == REVERSE)
+  {
+    if ((time - stateStartTime) > reverseTimer)
+    {
+      stateStartTime = time;
+      if (random(2) == 0) {  // Generates 0 or 1, randomly        
+        turnRight();  // Turn right for one second
+      }
+      else {
+        turnLeft();  // Turn left for one second
+      }
+    }
+  }
+  else if (motorState == TURNING)
+  {
+    if ((time - stateStartTime) > turningTimer)
+    {
+      stateStartTime = time;
+      driveForward();
+    }
+  }
 }
 
-void go_forward() {
-  //enabling motor A and B
-  digitalWrite (enableA, HIGH);
-  digitalWrite (enableB, HIGH);
-   
-  // Move forward
-  digitalWrite (MotorA1, LOW);
-  digitalWrite (MotorA2, HIGH);
-  digitalWrite (MotorB1, LOW);
-  digitalWrite (MotorB2, HIGH);
- 
+void hitObject (unsigned long time)
+{
+    stateStartTime = time;
+    driveReverse();
 }
-void go_backwards() {
-  //enabling motor A and B
-  digitalWrite (enableA, HIGH);
-  digitalWrite (enableB, HIGH);
-   
-  // Go backwards
-  digitalWrite (MotorA1,HIGH);
-  digitalWrite (MotorA2,LOW);  
-  digitalWrite (MotorB1,HIGH);
-  digitalWrite (MotorB2,LOW);  
-   
+
+void enableMotors()
+{
+  digitalWrite (ENABLE_A, HIGH);
+  digitalWrite (ENABLE_B, HIGH);
 }
-void go_right() {
-  //enabling motor A and B
-  digitalWrite (enableA, HIGH);
-  digitalWrite (enableB, HIGH);
-   
-  // Turn right
-  digitalWrite (MotorA1, LOW);
-  digitalWrite (MotorA2, HIGH);
-  digitalWrite (MotorB1,HIGH);
-  digitalWrite (MotorB2,LOW); 
+
+void driveForward() {
+  enableMotors();
+  motorState = FORWARD;
+  digitalWrite (MOTOR_A1, LOW);
+  digitalWrite (MOTOR_A2, HIGH);
+  digitalWrite (MOTOR_B1, LOW);
+  digitalWrite (MOTOR_B2, HIGH);
 }
-void go_left() {
-  //enabling motor A and B
-  digitalWrite (enableA, HIGH);
-  digitalWrite (enableB, HIGH);
-   
-  // Turn left
-  digitalWrite (MotorA1,HIGH);
-  digitalWrite (MotorA2,LOW);  
-  digitalWrite (MotorB1, LOW);
-  digitalWrite (MotorB2, HIGH);
+
+void driveReverse() {
+  enableMotors();
+  motorState = REVERSE;
+  digitalWrite (MOTOR_A1,HIGH);
+  digitalWrite (MOTOR_A2,LOW);  
+  digitalWrite (MOTOR_B1,HIGH);
+  digitalWrite (MOTOR_B2,LOW);  
 }
-void stop_all() {
-  digitalWrite (enableA, LOW);
-  digitalWrite (enableB, LOW);
+
+void turnRight() {
+  enableMotors();
+  motorState = TURNING;
+  digitalWrite (MOTOR_A1, LOW);
+  digitalWrite (MOTOR_A2, HIGH);
+  digitalWrite (MOTOR_B1,HIGH);
+  digitalWrite (MOTOR_B2,LOW); 
+}
+
+void turnLeft() {
+  enableMotors();
+  motorState = TURNING;
+  digitalWrite (MOTOR_A1,HIGH);
+  digitalWrite (MOTOR_A2,LOW);  
+  digitalWrite (MOTOR_B1, LOW);
+  digitalWrite (MOTOR_B2, HIGH);
+}
+
+void disableMotors() {
+  digitalWrite (ENABLE_A, LOW);
+  digitalWrite (ENABLE_B, LOW);
+  motorState = STOPPED;
 }
 

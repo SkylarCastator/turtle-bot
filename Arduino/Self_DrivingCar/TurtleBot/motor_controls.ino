@@ -43,10 +43,10 @@ void updateMotors(unsigned long time)
     {
       stateStartTime = time;
       if (random(2) == 0) {  // Generates 0 or 1, randomly        
-        turnRight();  // Turn right for one second
+        turnRight(); 
       }
       else {
-        turnLeft();  // Turn left for one second
+        turnLeft();  
       }
     }
   }

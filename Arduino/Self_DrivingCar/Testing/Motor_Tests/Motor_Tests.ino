@@ -1,47 +1,64 @@
+/**
+* Skylar Castator 2023
+* skylar.castator@gmail.com
+* Drive the motors forward and backwards with a delay
+**/
 //Motor A
-int enableA = 5;
-int MotorA1 = 6;
-int MotorA2 = 7;
+#define ENABLE_A = 5;
+#define MOTOR_A1 = 6;
+#define MOTOR_A2 = 7;
 
 //Motor B
-int enableB = 8;
-int MotorB1 = 9;
-int MotorB2 = 10;
+#define ENABLE_B = 8;
+#define MOTOR_B1 = 9;
+#define MOTOR_B2 = 10;
 
-void setup() {
-  Serial.begin(9600);
-
-  pinMode (enableA, OUTPUT);
-  pinMode (MotorA1, OUTPUT);
-  pinMode (MotorA2, OUTPUT);
-
-  pinMode (enableB, OUTPUT);
-  pinMode (MotorB1, OUTPUT);
-  pinMode (MotorB2, OUTPUT);
+void driveForward() 
+{
+  Serial.println("Motion Forward");
+  digitalWrite (MOTOR_A1, LOW);
+  digitalWrite (MOTOR_A2, HIGH);
+  digitalWrite(MOTOR_B1, LOW);
+  digitalWrite(MOTOR_B2, HIGH);
 }
 
-void loop() {
-  Serial.println("EnableMotors");
-  digitalWrite(enableA, HIGH);
-  digitalWrite(enableB, HIGH);
+void driveReverse()
+{
+  Serial.println("Motion Reverse");
+  digitalWrite (MOTOR_A1, HIGH);
+  digitalWrite (MOTOR_A2, LOW);
+  digitalWrite(MOTOR_B1, HIGH);
+  digitalWrite(MOTOR_B2, LOW);
+}
 
-  Serial.println("Motion Forward");
-  digitalWrite (MotorA1, LOW);
-  digitalWrite (MotorA2, HIGH);
-  digitalWrite(MotorB1, LOW);
-  digitalWrite(MotorB2, HIGH);
+void setup() 
+{
+  Serial.begin(9600);
+
+  pinMode (ENABLE_A, OUTPUT);
+  pinMode (MOTOR_A1, OUTPUT);
+  pinMode (MOTOR_A2, OUTPUT);
+
+  pinMode (ENABLE_B, OUTPUT);
+  pinMode (MOTOR_B1, OUTPUT);
+  pinMode (MOTOR_B2, OUTPUT);
+}
+
+void loop() 
+{
+  Serial.println("EnableMotors");
+  digitalWrite(ENABLE_A, HIGH);
+  digitalWrite(ENABLE_B, HIGH);
+
+  driveForward();
   delay(3000);
 
-  Serial.println("Motion Reverse");
-  digitalWrite (MotorA1, HIGH);
-  digitalWrite (MotorA2, LOW);
-  digitalWrite(MotorB1, HIGH);
-  digitalWrite(MotorB2, LOW);
+  driveReverse();
   delay(3000);
 
   Serial.println("Stop Motors");
-  digitalWrite(enableA, LOW);
-  digitalWrite(enableB, LOW);
+  digitalWrite(ENABLE_A, LOW);
+  digitalWrite(ENABLE_B, LOW);
   delay(3000);
 
 }

@@ -6,7 +6,7 @@
 
 #import <Wire.h>
 
-const int baudRate = 9600;
+const int BAUD_RATE = 9600;
 
 unsigned long currentMillis;
 
@@ -26,8 +26,8 @@ void hitObject (unsigned long time);
 void setup() {
   Wire.begin();
   //randomSeed(analogRead(3));
-  Serial.begin(baudRate);
-  setupBluetooth(baudRate);
+  Serial.begin(BAUD_RATE);
+  setupBluetooth(BAUD_RATE);
   setupEncoders();
   setupCompass();
   setupDistanceSensor();

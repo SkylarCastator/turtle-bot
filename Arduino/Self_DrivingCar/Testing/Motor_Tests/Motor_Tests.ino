@@ -3,15 +3,12 @@
 * skylar.castator@gmail.com
 * Drive the motors forward and backwards with a delay
 **/
-//Motor A
-#define ENABLE_A = 5;
-#define MOTOR_A1 = 6;
-#define MOTOR_A2 = 7;
-
-//Motor B
-#define ENABLE_B = 8;
-#define MOTOR_B1 = 9;
-#define MOTOR_B2 = 10;
+#define ENABLE_A 5
+#define MOTOR_A1 6
+#define MOTOR_A2 7
+#define ENABLE_B 8
+#define MOTOR_B1 9
+#define MOTOR_B2 10
 
 void driveForward() 
 {

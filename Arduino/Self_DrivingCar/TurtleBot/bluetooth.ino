@@ -21,7 +21,7 @@ void readBluetoothSerial()
 
 void sendBluetoothDistanceMessage(int distance)
 {
-  char str[] = "u ";
+  char str[] = "u: ";
   char distVal[10];
 
   sprintf(distVal, "%d", distance);

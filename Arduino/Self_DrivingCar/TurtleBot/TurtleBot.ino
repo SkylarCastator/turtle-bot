@@ -36,10 +36,14 @@ void setup() {
 
 void loop() {
   currentMillis = millis();
+  Serial.print("t ");
+  Serial.print(currentMillis);
+  Serial.print("\n");
 
   int distance = updateDistanceSensor();
   readBluetoothSerial();
   readCompass();
+  
   sendBluetoothDistanceMessage(distance);
 
   if (distance >= 0 && distance <= 2)

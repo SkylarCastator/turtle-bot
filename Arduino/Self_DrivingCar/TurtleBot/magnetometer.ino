@@ -7,6 +7,8 @@
 
 QMC5883LCompass compass;
 
+bool enableSerialPrint = false;
+
 void setupCompass()
 {
   compass.init();
@@ -15,7 +17,6 @@ void setupCompass()
 void readCompass()
 {
   int x, y, z, a, b;
-	char directionArray[3];
 	
 	compass.read();
   
@@ -27,28 +28,35 @@ void readCompass()
 	
 	b = compass.getBearing(a);
 
-	compass.getDirection(directionArray, a);
-  
-	Serial.print("X: ");
-	Serial.print(x);
+	printData(x, y, z, a, b);
+}
 
-	Serial.print(" Y: ");
-	Serial.print(y);
+void printData(int x, int y, int z, int a, int b)
+{
+  if (enableSerialPrint)
+  {
+    Serial.print("X: ");
+    Serial.print(x);
 
-	Serial.print(" Z: ");
-	Serial.print(z);
+    Serial.print(" Y: ");
+    Serial.print(y);
 
-	Serial.print(" Azimuth: ");
-	Serial.print(a);
+    Serial.print(" Z: ");
+    Serial.print(z);
 
-	Serial.print(" Bearing: ");
-	Serial.print(b);
+    Serial.print(" Azimuth: ");
+    Serial.print(a);
 
-	Serial.print(" Direction: ");
-	Serial.print(directionArray[0]);
-	Serial.print(directionArray[1]);
-	Serial.print(directionArray[2]);
+    Serial.print(" Bearing: ");
+    Serial.print(b);
 
-	Serial.println();
+    char directionArray[3];
+    compass.getDirection(directionArray, a);
+    Serial.print(" Direction: ");
+    Serial.print(directionArray[0]);
+    Serial.print(directionArray[1]);
+    Serial.print(directionArray[2]);
 
+    Serial.println();
+  }
 }

@@ -19,15 +19,7 @@ void readBluetoothSerial()
   }
 }
 
-void sendBluetoothDistanceMessage(int distance)
+void sendDiagnosticData(String botData)
 {
-  char str[] = "u: ";
-  char distVal[10];
-
-  sprintf(distVal, "%d", distance);
-  char add_new_line[] = "\n";
-  strcat(distVal, add_new_line);
-  strcat(str, distVal);
-
-  EEBlue.write(str);
+  EEBlue.write(botData.c_str());
 }

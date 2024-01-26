@@ -3,7 +3,7 @@
 * skylar.castator@gmail.com
 * Manages the data coming in from the encoders for both motors
 **/
-
+#include "TimerOne.h"
 #define ENCODER_LEFT_PIN 2
 #define ENCODER_RIGHT_PIN 3
 #define ENCODER_N 20

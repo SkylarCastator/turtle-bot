@@ -5,21 +5,26 @@
 **/
 
 #import <Wire.h>
+#include "BotInstance.h"
+#include "UltrasonicRangeSensor.h"
+
+#define TRIGGER_PIN 12
+#define ECHO_PIN 13 
 
 const int BAUD_RATE = 9600;
 
 unsigned long currentMillis;
 
+BotInstance botInstance("001", "Turtleturtle");
+UltrasonicRangeSensor distSensor(TRIGGER_PIN, ECHO_PIN);
+
 void setupCompass();
 void setupEncoders();
 void setupBluetooth(int baudRate);
-void setupDistanceSensor();
 void setupMotors();
 
-int updateDistanceSensor();
 void readCompass();
 void readBluetoothSerial();
-void sendBluetoothDistanceMessage(int distance);
 void updateMotors(unsigned long time);
 void hitObject (unsigned long time);
 
@@ -30,7 +35,6 @@ void setup() {
   setupBluetooth(BAUD_RATE);
   setupEncoders();
   setupCompass();
-  setupDistanceSensor();
   setupMotors();
 }
 
@@ -40,11 +44,11 @@ void loop() {
   Serial.print(currentMillis);
   Serial.print("\n");
 
-  int distance = updateDistanceSensor();
+  int distance = distSensor.getDistance();
   readBluetoothSerial();
   readCompass();
   
-  sendBluetoothDistanceMessage(distance);
+  sendDiagnosticData(botInstance.serializeData());
 
   if (distance >= 0 && distance <= 2)
   {

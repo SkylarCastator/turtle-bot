@@ -4,15 +4,17 @@ Encoder::Encoder(byte interruptPin, int encoderN)
 {
   this->interruptPin = interruptPin;
   this->encoderN = encoderN;
+  pinMode(this->interruptPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(this->interruptPin), interruptEvent, RISING);
 }
 
-void Encoder::init()
+void Encoder::update(unsigned long time)
 {
-  pinMode(this->interruptPin, INPUT);
-  
-  Timer1.initialize(1000000); // set timer for 1 sec
-  //attachInterrupt(digitalPinToInterrupt(this->interruptPin), this->interruptEvent, RISING);
-  //Timer1.attachInterrupt(interruptTimer);
+  if ((time - this->timer) > this->measureTimer)
+  {
+    this->timer = time;
+    interruptTimer();
+  }
 }
 
 void Encoder::interruptEvent()
@@ -25,7 +27,6 @@ void Encoder::interruptTimer()
   Timer1.detachInterrupt();
   this->rpm = (60.00) * (float(this->counter) / float(this->encoderN));
   this->counter = 0;
-  //Timer1.attachInterrupt(interruptTimer);
 }
 
 

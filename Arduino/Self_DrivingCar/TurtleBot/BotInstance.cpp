@@ -1,6 +1,5 @@
 #include "BotInstance.h"
     BotInstance::BotInstance(int id, String name)
-    : encoderLeft(2,20), encoderRight(3,20)
     {
       this->id = id;
       this->name = name;
@@ -11,7 +10,14 @@
     {
       this->time = time;
       this->compass.read();
+      this->distance = this->distSensor.getDistance();
       this->azimuth = this->compass.getAzimuth();
+
+      if (this->distance >= 0 && this->distance <= 2)
+      {
+        this->controller.hitObject(this->time);
+      }
+      this->controller.updateMotors(this->time);
     }
 
     String BotInstance::serializeData()

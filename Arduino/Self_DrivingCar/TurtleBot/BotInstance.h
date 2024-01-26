@@ -2,8 +2,8 @@
 #include <ArduinoJson.h>
 #include <QMC5883LCompass.h>
 #include "UltrasonicRangeSensor.h"
-#include "Encoder.h"
 #include "Controller.h"
+#include "Encoder.h"
 
 #define ENCODER_LEFT_PIN 2
 #define ENCODER_RIGHT_PIN 3
@@ -19,11 +19,11 @@ class BotInstance{
     int azimuth = 0;
     QMC5883LCompass compass;
     UltrasonicRangeSensor distSensor = UltrasonicRangeSensor(TRIGGER_PIN, ECHO_PIN);
-    Encoder encoderLeft = Encoder(ENCODER_LEFT_PIN,20);
-    Encoder encoderRight = Encoder(ENCODER_RIGHT_PIN,20);
     Controller controller = Controller();
 
   public:
+    Encoder encoderLeft = Encoder(ENCODER_LEFT_PIN,20);
+    Encoder encoderRight = Encoder(ENCODER_RIGHT_PIN,20);
     BotInstance(int id, String name);
     void update(int time);
     String serializeData();

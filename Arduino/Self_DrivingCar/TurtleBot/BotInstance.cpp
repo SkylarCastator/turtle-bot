@@ -1,13 +1,9 @@
 #include "BotInstance.h"
-
     BotInstance::BotInstance(int id, String name)
+    : encoderLeft(2,20), encoderRight(3,20)
     {
       this->id = id;
       this->name = name;
-    }
-
-    void BotInstance::init()
-    {
       this->compass.init();
     }
 

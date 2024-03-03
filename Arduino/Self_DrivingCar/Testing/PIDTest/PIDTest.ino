@@ -2,51 +2,49 @@
 #include <SoftwareSerial.h>
 #include <QMC5883LCompass.h>
 #include <ArduinoJson.h>
-JsonDocument doc;
+#include <EEPROM.h>
 
-SoftwareSerial EEBlue(2,3); //RX and TX
+JsonDocument doc; //Manages Control Messages from the Phone
+JsonDocument sendDoc;
+
+SoftwareSerial EEBlue(2,4); //RX and TX
 QMC5883LCompass compass;
 
-int kp_v, kd_v, ki_v;
-int kp_w, kd_w, ki_w;
+class RobotData
+{
+  public :
+   int azimuth = 0; //Magntometer Direction 180 -> -180
+   char directionArray[3]; // Gives the direction like _N_
+   int calibrated = 0; //Used for creating the offset
+  
+   int kp_v = 6; //elocity setting
+   int kd_v = 4; //Derivitive Velocity Setting
+   int ki_v = 0; //Integral Velocity Setting
+   int kp_w = 3; // Angular Velocity Setting
+   int kd_w = 4; //Derivitive Angular Velocity Setting
+   int ki_w = 0; //Integral Angular Velocity Setting
+};
 
-float vCurr = 0;
-float vDest = 0;
+RobotData robot;
+
+float vCurr = 0; //Current Velocity
+float vDest = 0; //Destinatoin Velocity
 double vErrSum, vErrLast;
 
-float wCurr = 0;
-float wDest = 0;
+float wCurr = 0; //Current Angular Velocity
+float wDest = 0; //Destination Angular Velocity
 double wErrSum, wErrLast;
 
-unsigned long lastTime;
+unsigned long lastTime; //Last update for PID Controller
 
 float wheel_base = 100; // Space between Wheels mm
 float wheel_dia = 65; //Wheel diminsion mm
 
 double vVal, wVal;
 
-
-void updatePID()
-{
-  unsigned long now = millis();
-  double timeChange = (double)(now-lastTime);
-  double vErr = vDest-vCurr;
-  vErrSum += (vErr * timeChange);
-  double vErrDot = (vErr*vErrLast) / timeChange;
-  vVal = kp_v*(vErr) + kd_v*(vErrDot) + ki_v*(vErrSum);
-  vErrLast = vErr;
-
-  double wErr = wDest-wCurr;
-  wErrSum += (wErr * timeChange);
-  double wErrDot = (wErr*wErrLast) / timeChange;
-  wVal = kp_w*(wErr) + kd_w*(wErrDot) + ki_w*(wErrSum);
-  vErrLast = vErr;
-
-  lastTime = now;
-}
-
-
-
+boolean newData = false;
+const byte numChars = 128; //Length of Bluetooth Message
+char receivedChars[numChars];
 
 #define FORWARD  0
 #define REVERSE 1
@@ -57,23 +55,48 @@ void updatePID()
 #define DIRB 13 // Direction control for motor B
 #define PWMB 11 // PWM control (speed) for motor B
 
-
 void setup () 
 {
   Serial.begin(9600);
   EEBlue.begin(9600);
+  robot = RobotData();
   Serial.println("The Bluetooth gates are open.");
   Serial.println("Connect to HC-05 with 1234 as key");
   compass.init();
   setupArdumoto();
 }
 
-boolean newData = false;
-const byte numChars = 128;
-char receivedChars[numChars];
-
 void loop () 
 {
+	char directionArray[3];
+	compass.read();
+	robot.azimuth = compass.getAzimuth();
+	compass.getDirection(robot.directionArray, robot.azimuth);
+  wCurr = robot.azimuth;
+
+  bluetoothSerialization();
+  updatePID();
+  motorControls(robot.azimuth);
+  delay(20);                                
+}
+
+void sendBluetoothMessage(){
+  //sendDoc["azimuth"] = robot.azimuth;
+  //sendDoc["calibrated"] = robot.calibrated;
+  //sendDoc["directionArray"][0] = robot.directionArray[0];
+  ///sendDoc["directionArray"][1] = robot.directionArray[1];
+  //sendDoc["directionArray"][2] = robot.directionArray[2];
+  //sendDoc["kp_v"] = robot.kp_v;
+  ///sendDoc["kd_v"] = robot.kd_v;
+  //sendDoc["ki_v"] = robot.ki_v;
+  //sendDoc["kp_w"] = robot.kp_w;
+  ///sendDoc["kd_w"] = robot.kd_w;
+  //sendDoc["ki_w"] = robot.ki_w;
+  //serializeJson(sendDoc, Serial);
+  //EEBlue.write(Serial); 
+}
+
+void bluetoothSerialization(){
     static boolean recvInProgress = false;
     static byte ndx = 0;
     char startMarker = '{';
@@ -111,7 +134,7 @@ void loop ()
   }
 
    if (newData == true) {
-        //Serial.println(receivedChars);
+        Serial.println(receivedChars);
         DeserializationError error = deserializeJson(doc, receivedChars);
         if(error) {
           Serial.print("deserializeJson() returned ");
@@ -121,19 +144,51 @@ void loop ()
         double x = doc["x"];
         double y = doc["y"];
         double phi = doc["phi"];
-        vDest = 0;
-        wDest = 0;
-        kp_v = doc["v_kp"];
-        kd_v = doc["v_kv"];
-        ki_v = doc["v_ki"];
-        kp_w = doc["w_kp"];
-        kd_w = doc["w_kv"];
-        ki_w = doc["w_ki"];
+        vDest = sqrt(pow(x, 2) + pow(y, 2));
+        wDest = phi * 180 / PI;
+        robot.kp_v = doc["v_kp"];
+        robot.kd_v = doc["v_kv"];
+        robot.ki_v = doc["v_ki"];
+        robot.kp_w = doc["w_kp"];
+        robot.kd_w = doc["w_kv"];
+        robot.ki_w = doc["w_ki"];
         newData = false;
     } 
-  updatePID();
-  int vr_dest = (2*vVal+(wVal*wheel_base))/wheel_dia;
-  int vl_dest = (2*vVal-(wVal*wheel_base))/wheel_dia;
+}
+
+void updatePID()
+{
+  //Controls for Velocity
+  unsigned long now = millis();
+  double timeChange = (double)(now-lastTime);
+  double vErr = vDest-vCurr;
+  vErrSum += (vErr * timeChange);
+  double vErrDot = (vErr*vErrLast) / timeChange;
+  vVal = robot.kp_v*(vErr) + robot.kd_v*(vErrDot) + robot.ki_v*(vErrSum);
+  vErrLast = vErr;
+  //Controls for Angular Momentum
+  double wErr = wDest-wCurr;
+  wErrSum += (wErr * timeChange);
+  double wErrDot = (wErr*wErrLast) / timeChange;
+  wVal = robot.kp_w*(wErr) + robot.kd_w*(wErrDot) + robot.ki_w*(wErrSum);
+  wErrLast = wErr;
+  lastTime = now;
+}
+
+void motorControls(int a)
+{
+  int vr_dest, vl_dest;
+
+  if (a > 0) {
+    vr_dest = (2*vVal+(wVal*wheel_base))/wheel_dia;
+    vl_dest = (2*vVal-(wVal*wheel_base))/wheel_dia;
+  }
+  else
+  {
+    vr_dest = (2*vVal-(wVal*wheel_base))/wheel_dia;
+    vl_dest = (2*vVal+(wVal*wheel_base))/wheel_dia;
+  }
+  
   if (vr_dest < 0)
   {
     driveArdumoto(MOTOR_A, REVERSE, vr_dest * -1);
@@ -151,44 +206,6 @@ void loop ()
   {
     driveArdumoto(MOTOR_B, FORWARD, vl_dest);
   }
-
-  int x, y, z, a, b;
-	char directionArray[3];
-	
-	compass.read();
-  
-	x = compass.getX();
-	y = compass.getY();
-	z = compass.getZ();
-	
-	a = compass.getAzimuth();
-	
-	b = compass.getBearing(a);
-
-	compass.getDirection(directionArray, a);
-  
-	/*Serial.print("X: ");
-	Serial.print(x);
-
-	Serial.print(" Y: ");
-	Serial.print(y);
-
-	Serial.print(" Z: ");
-	Serial.print(z);
-
-	Serial.print(" Azimuth: ");
-	Serial.print(a);
-
-	Serial.print(" Bearing: ");
-	Serial.print(b);
-
-	Serial.print(" Direction: ");
-	Serial.print(directionArray[0]);
-	Serial.print(directionArray[1]);
-	Serial.print(directionArray[2]);
-
-	Serial.println();*/
-  delay(30);                                
 }
 
 void driveArdumoto(byte motor, byte dir, byte spd)
@@ -205,22 +222,17 @@ void driveArdumoto(byte motor, byte dir, byte spd)
   }  
 }
 
-// stopArdumoto makes a motor stop
 void stopArdumoto(byte motor)
 {
   driveArdumoto(motor, 0, 0);
 }
 
-// setupArdumoto initialize all pins
 void setupArdumoto()
 {
-  // All pins should be setup as outputs:
   pinMode(PWMA, OUTPUT);
   pinMode(PWMB, OUTPUT);
   pinMode(DIRA, OUTPUT);
   pinMode(DIRB, OUTPUT);
-
-  // Initialize all pins as low:
   digitalWrite(PWMA, LOW);
   digitalWrite(PWMB, LOW);
   digitalWrite(DIRA, LOW);

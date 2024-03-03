@@ -1,7 +1,14 @@
 #include <PID_v1.h>
+#include <SoftwareSerial.h>
+#include <QMC5883LCompass.h>
+#include <ArduinoJson.h>
+JsonDocument doc;
 
-double kp_v, kd_v, ki_v;
-float kp_w, kd_w, ki_w;
+SoftwareSerial EEBlue(2,3); //RX and TX
+QMC5883LCompass compass;
+
+int kp_v, kd_v, ki_v;
+int kp_w, kd_w, ki_w;
 
 float vCurr = 0;
 float vDest = 0;
@@ -54,11 +61,76 @@ void updatePID()
 void setup () 
 {
   Serial.begin(9600);
+  EEBlue.begin(9600);
+  Serial.println("The Bluetooth gates are open.");
+  Serial.println("Connect to HC-05 with 1234 as key");
+  compass.init();
   setupArdumoto();
 }
 
+boolean newData = false;
+const byte numChars = 128;
+char receivedChars[numChars];
+
 void loop () 
 {
+    static boolean recvInProgress = false;
+    static byte ndx = 0;
+    char startMarker = '{';
+    char endMarker = '}';
+    char rc;
+  while (EEBlue.available() > 0 && newData == false){
+    rc = EEBlue.read();
+
+    if (recvInProgress == true) {
+            if (rc != endMarker) {
+                receivedChars[ndx] = rc;
+                ndx++;
+                if (ndx >= numChars) {
+                    ndx = numChars - 1;
+                }
+            }
+            else {
+                receivedChars[ndx] = rc;
+                ndx++;
+                receivedChars[ndx] = '\0'; // terminate the string
+                recvInProgress = false;
+                ndx = 0;
+                newData = true;
+            }
+        }
+
+        else if (rc == startMarker) {
+            recvInProgress = true;
+            receivedChars[ndx] = rc;
+                ndx++;
+                if (ndx >= numChars) {
+                    ndx = numChars - 1;
+                }
+        }
+  }
+
+   if (newData == true) {
+        //Serial.println(receivedChars);
+        DeserializationError error = deserializeJson(doc, receivedChars);
+        if(error) {
+          Serial.print("deserializeJson() returned ");
++         Serial.println(error.c_str());
+          return false;
+        }
+        double x = doc["x"];
+        double y = doc["y"];
+        double phi = doc["phi"];
+        vDest = 0;
+        wDest = 0;
+        kp_v = doc["v_kp"];
+        kd_v = doc["v_kv"];
+        ki_v = doc["v_ki"];
+        kp_w = doc["w_kp"];
+        kd_w = doc["w_kv"];
+        ki_w = doc["w_ki"];
+        newData = false;
+    } 
   updatePID();
   int vr_dest = (2*vVal+(wVal*wheel_base))/wheel_dia;
   int vl_dest = (2*vVal-(wVal*wheel_base))/wheel_dia;
@@ -79,6 +151,43 @@ void loop ()
   {
     driveArdumoto(MOTOR_B, FORWARD, vl_dest);
   }
+
+  int x, y, z, a, b;
+	char directionArray[3];
+	
+	compass.read();
+  
+	x = compass.getX();
+	y = compass.getY();
+	z = compass.getZ();
+	
+	a = compass.getAzimuth();
+	
+	b = compass.getBearing(a);
+
+	compass.getDirection(directionArray, a);
+  
+	/*Serial.print("X: ");
+	Serial.print(x);
+
+	Serial.print(" Y: ");
+	Serial.print(y);
+
+	Serial.print(" Z: ");
+	Serial.print(z);
+
+	Serial.print(" Azimuth: ");
+	Serial.print(a);
+
+	Serial.print(" Bearing: ");
+	Serial.print(b);
+
+	Serial.print(" Direction: ");
+	Serial.print(directionArray[0]);
+	Serial.print(directionArray[1]);
+	Serial.print(directionArray[2]);
+
+	Serial.println();*/
   delay(30);                                
 }
 

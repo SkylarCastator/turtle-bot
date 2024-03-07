@@ -16,9 +16,10 @@ QMC5883LCompass compass;
 class RobotData
 {
   public :
+   String name = "Turtle";
+   int battery = 100;
    int azimuth = 0; //Magntometer Direction 180 -> -180
    char directionArray[3]; // Gives the direction like _N_
-   int calibrated = 0; //Used for creating the offset
   
    int kp_v = -100; //velocity setting
    int kd_v = -5; //Derivitive Velocity Setting
@@ -97,36 +98,8 @@ void loop ()
 	compass.getDirection(robot.directionArray, a);
   angleCurr = robot.azimuth;
 
-  int rightPinState = digitalRead(ENCODER_RIGHT_PIN);
-  if (rightPinState == 1)
-  {
-    if (!rightStateHigh)
-    {
-      rightStateHigh = true;
-      counterRight += rightMotorDirection;
-    }
-  }
-  else
-  {
-    rightStateHigh = false;
-  }
-
-  int leftPinState = digitalRead(ENCODER_LEFT_PIN);
-  if (leftPinState == 1)
-  {
-    if (!leftStateHigh)
-    {
-      leftStateHigh = true;
-      counterLeft += leftMotorDirection;
-    }
-  }
-  else
-  {
-    leftStateHigh = false;
-  }
-
-  //tickEncoder(ENCODER_RIGHT_PIN, rightStateHigh, counterRight, rightMotorDirection);
-  //tickEncoder(ENCODER_LEFT_PIN, leftStateHigh, counterLeft, leftMotorDirection);
+  tickEncoder(ENCODER_RIGHT_PIN, rightStateHigh, counterRight, rightMotorDirection);
+  tickEncoder(ENCODER_LEFT_PIN, leftStateHigh, counterLeft, leftMotorDirection);
 
   bluetoothSerialization();
   parseBluetoothMessage();
@@ -173,20 +146,40 @@ void interuptTimerOne()
   Timer1.attachInterrupt(interuptTimerOne);
 }
 
-void sendBluetoothMessage(){
-  //sendDoc["azimuth"] = robot.azimuth;
-  //sendDoc["calibrated"] = robot.calibrated;
-  //sendDoc["directionArray"][0] = robot.directionArray[0];
-  ///sendDoc["directionArray"][1] = robot.directionArray[1];
-  //sendDoc["directionArray"][2] = robot.directionArray[2];
-  //sendDoc["kp_v"] = robot.kp_v;
-  ///sendDoc["kd_v"] = robot.kd_v;
-  //sendDoc["ki_v"] = robot.ki_v;
-  //sendDoc["kp_w"] = robot.kp_w;
-  ///sendDoc["kd_w"] = robot.kd_w;
-  //sendDoc["ki_w"] = robot.ki_w;
-  //serializeJson(sendDoc, Serial);
-  //EEBlue.write(Serial); 
+void sendDeviceValues()
+{
+  String message = "< 1, ";
+  message.concat(robot.name)
+  message.concat(", ")
+  message.concat(robot.battery)
+  message.concat(", ")
+  message.concat(robot.azimuth)
+  message.concat(", ")
+  message.concat(robot.directionArray[0])
+  message.concat(", ")
+  message.concat(robot.directionArray[1])
+  message.concat(", ")
+  message.concat(robot.directionArray[2])
+  message.concat(">")
+  EEBlue.write(message);
+}
+
+void sendPIDValues()
+{
+  String message = "< 2, ";
+  message.concat(robot.kp_v)
+  message.concat(", ")
+  message.concat(robot.kd_v)
+  message.concat(", ")
+  message.concat(robot.ki_v)
+  message.concat(", ")
+  message.concat(robot.kp_w)
+  message.concat(", ")
+  message.concat(robot.kd_w)
+  message.concat(", ")
+  message.concat(robot.ki_w)
+  message.concat(">")
+  EEBlue.write(message);
 }
 
 void bluetoothSerialization(){

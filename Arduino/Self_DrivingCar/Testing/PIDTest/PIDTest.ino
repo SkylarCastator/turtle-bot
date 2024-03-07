@@ -10,9 +10,6 @@
 #define ENCODER_N 20
 #define MAX_RPM_9V 180
 
-JsonDocument doc; //Manages Control Messages from the Phone
-JsonDocument sendDoc;
-
 SoftwareSerial EEBlue(2,4); //RX and TX
 QMC5883LCompass compass;
 
@@ -23,11 +20,11 @@ class RobotData
    char directionArray[3]; // Gives the direction like _N_
    int calibrated = 0; //Used for creating the offset
   
-   int kp_v = 20; //velocity setting
-   int kd_v = 10; //Derivitive Velocity Setting
+   int kp_v = -100; //velocity setting
+   int kd_v = -5; //Derivitive Velocity Setting
    int ki_v = 0; //Integral Velocity Setting
-   int kp_w = 50; // Angular Velocity Setting
-   int kd_w = 10; //Derivitive Angular Velocity Setting
+   int kp_w = 70; // Angular Velocity Setting
+   int kd_w = 30; //Derivitive Angular Velocity Setting
    int ki_w = 0; //Integral Angular Velocity Setting
 };
 
@@ -52,8 +49,9 @@ float wheel_dia = 0.065; //Wheel diminsion mm
 double vVal, angleVal;
 
 boolean newData = false;
-const byte numChars = 128; //Length of Bluetooth Message
+const byte numChars = 32; //Length of Bluetooth Message
 char receivedChars[numChars];
+char tempChars[numChars];
 
 #define FORWARD  0
 #define REVERSE 1
@@ -86,7 +84,7 @@ void setup ()
   setupArdumoto();
   pinMode(ENCODER_LEFT_PIN, INPUT);
   pinMode(ENCODER_RIGHT_PIN, INPUT);
-  Timer1.initialize(100000); // set timer for 1 sec
+  Timer1.initialize(10000); // set timer for 0.01 sec
   Timer1.attachInterrupt(interuptTimerOne);
 }
 
@@ -127,10 +125,30 @@ void loop ()
     leftStateHigh = false;
   }
 
+  //tickEncoder(ENCODER_RIGHT_PIN, rightStateHigh, counterRight, rightMotorDirection);
+  //tickEncoder(ENCODER_LEFT_PIN, leftStateHigh, counterLeft, leftMotorDirection);
+
   bluetoothSerialization();
+  parseBluetoothMessage();
   updatePID();
-  motorControls();
- // delay(20);                                
+  motorControls();  
+  delay(10);                          
+}
+
+void tickEncoder(int pinNum, boolean state, int counter, int direction){
+  int pinVal = digitalRead(ENCODER_LEFT_PIN);
+  if (pinVal == 1)
+  {
+    if (!state)
+    {
+      state = true;
+      counter += direction;
+    }
+  }
+  else
+  {
+    state = false;
+  }
 }
 
 void interuptTimerOne()
@@ -142,8 +160,8 @@ void interuptTimerOne()
   //Serial.print("Counter  Right : ");
   //Serial.println(counterRight);
   
-  leftRPM = (600.00) * (float(counterLeft) / float(ENCODER_N));
-  rightRPM = (600.00) * (float(counterRight) / float(ENCODER_N));
+  leftRPM = (6000.00) * (float(counterLeft) / float(ENCODER_N));
+  rightRPM = (6000.00) * (float(counterRight) / float(ENCODER_N));
   vCurr = (leftRPM+rightRPM)/2;
   //Serial.print("Motor Left RPM : ");
   //Serial.println(leftRPM);
@@ -172,63 +190,84 @@ void sendBluetoothMessage(){
 }
 
 void bluetoothSerialization(){
-    static boolean recvInProgress = false;
-    static byte ndx = 0;
-    char startMarker = '{';
-    char endMarker = '}';
-    char rc;
-    while (EEBlue.available() > 0 && newData == false){
-      rc = EEBlue.read();
-
-      if (recvInProgress == true) {
-       if (rc != endMarker) {
-          receivedChars[ndx] = rc;
-          ndx++;
-          if (ndx >= numChars) {
-            ndx = numChars - 1;
-          }
-        }
-        else {
-          receivedChars[ndx] = rc;
-          ndx++;
-          receivedChars[ndx] = '\0'; // terminate the string
-          recvInProgress = false;
-          ndx = 0;
-          newData = true;
-        }
-      }
-      else if (rc == startMarker) {
-        recvInProgress = true;
+  static boolean recvInProgress = false;
+  static byte ndx = 0;
+  char startMarker = '<';
+  char endMarker = '>';
+  char rc;
+  while (EEBlue.available() > 0 && newData == false){
+    rc = EEBlue.read();
+    if (recvInProgress == true) {
+      if (rc != endMarker) {
         receivedChars[ndx] = rc;
         ndx++;
         if (ndx >= numChars) {
           ndx = numChars - 1;
         }
       }
+      else {
+        receivedChars[ndx] = '\0'; // terminate the string
+        recvInProgress = false;
+        ndx = 0;
+        newData = true;
+      }
     }
+    else if (rc == startMarker) {
+      recvInProgress = true;
+    }
+  }
+}
 
+  void parseBluetoothMessage()
+  {
    if (newData == true) {
-        Serial.println(receivedChars);
-        DeserializationError error = deserializeJson(doc, receivedChars);
-        if(error) {
-          Serial.print("deserializeJson() returned ");
-+         Serial.println(error.c_str());
-          return;
+        strcpy(tempChars, receivedChars);
+        //Serial.println(receivedChars);
+        char * strtokIndx;
+        strtokIndx = strtok(tempChars,",");
+        int messageType = atoi(strtokIndx);
+        if (messageType == 1){
+            strtokIndx = strtok(NULL, ",");
+            double x = atof(strtokIndx);
+            strtokIndx = strtok(NULL, ",");
+            double y = atof(strtokIndx);
+            strtokIndx = strtok(NULL, ",");
+            double phi = atof(strtokIndx);
+            vDest = sqrt(pow(x, 2) + pow(y, 2));
+            if (vDest != 0){
+              angleDest = phi * 180 / PI;
+              angleDest -= 90;
+              if (angleDest < -180)
+              {
+                angleDest += 360;
+              }
+              angleDest *= -1;
+            }
+            else
+            {
+              angleDest = angleDest;
+            }
         }
-        double x = doc["x"];
-        double y = doc["y"];
-        double phi = doc["phi"];
-        vDest = sqrt(pow(x, 2) + pow(y, 2)) * MAX_RPM_9V;
-        angleDest = phi * 180 / PI;
-        robot.kp_v = doc["v_kp"];
-        robot.kd_v = doc["v_kv"];
-        robot.ki_v = doc["v_ki"];
-        robot.kp_w = doc["w_kp"];
-        robot.kd_w = doc["w_kv"];
-        robot.ki_w = doc["w_ki"];
+        else if(messageType == 2)
+        {
+            strtokIndx = strtok(NULL, ",");
+            int saveFlag = atoi(strtokIndx);
+            strtokIndx = strtok(NULL, ",");
+            robot.kp_v = -1 * atoi(strtokIndx);
+            strtokIndx = strtok(NULL, ",");
+            robot.kd_v = -1 * atoi(strtokIndx);
+            strtokIndx = strtok(NULL, ",");
+            robot.ki_v = -1 * atoi(strtokIndx);
+            strtokIndx = strtok(NULL, ",");
+            robot.kp_w = atoi(strtokIndx);
+            strtokIndx = strtok(NULL, ",");
+            robot.kd_w = atoi(strtokIndx);
+            strtokIndx = strtok(NULL, ",");
+            robot.ki_w = atoi(strtokIndx);
+        }
         newData = false;
     } 
-}
+  }
 
 int findShortestPath(int currentAngle, int targetAngle) {
     // Normalize angles to be from 0 to 360
@@ -258,30 +297,17 @@ void updatePID()
   double vErr = vDest-vCurr;
   vErrSum += (vErr * timeChange);
   double vErrDot = (vErr-vErrLast) / timeChange;
-  vVal = float(robot.kp_v/10)*(vErr) + float(robot.kd_v/10)*(vErrDot) + float(robot.ki_v/10)*(vErrSum);
+  vVal = float(robot.kp_v)*(vErr) + float(robot.kd_v)*(vErrDot) + float(robot.ki_v)*(vErrSum);
   vErrLast = vErr;
 
-  double angleErr = findShortestPath(angleCurr, angleDest);//angleDest-angleCurr; // Manage for around the curve -180 -> 180
+  double angleErr = findShortestPath(angleCurr, angleDest);
   angleErrSum += (angleErr * timeChange);
-  double wErrDot = (angleErr-angleErrLast) / timeChange; //Filter by average
-  angleErrHistory[angleErrCounter] = wErrDot;
-  int arraySum = 0;
-  for(int index = 0; index < sizeof(angleErrHistory); index++)
-  { 
-    arraySum += angleErrHistory[index]; 
-  }
-  angleErrAvr = arraySum / sizeof(angleErrHistory);
+  double wErrDot = (angleErr-angleErrLast) / timeChange;
   angleVal = float(robot.kp_w/10)*(angleErr) + float(robot.kd_w/10)*(wErrDot) + float(robot.ki_w/10)*(angleErrSum);
   angleErrLast = angleErr;
-  angleErrCounter += 1;
-  if (angleErrCounter >= sizeof(angleErrHistory))
-  {
-    angleErrCounter = 0;
-  }
+
   lastTime = now;
 }
-
-
 
 void savePIDs()
 {
@@ -295,8 +321,6 @@ void savePIDs()
 
 void motorControls()
 {
-  //Serial.println(vVal);
-  //Serial.println(angleVal);
   int vr_dest = (2*vVal+(angleVal*wheel_base))/wheel_dia;
   int vl_dest = (2*vVal-(angleVal*wheel_base))/wheel_dia;
   driveArdumoto(MOTOR_A, vr_dest);

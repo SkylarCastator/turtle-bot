@@ -24,12 +24,14 @@ class RobotData
    int kp_v = -100; //velocity setting
    int kd_v = -5; //Derivitive Velocity Setting
    int ki_v = 0; //Integral Velocity Setting
-   int kp_w = 70; // Angular Velocity Setting
-   int kd_w = 30; //Derivitive Angular Velocity Setting
+   int kp_w = 4; // Angular Velocity Setting
+   int kd_w = 4; //Derivitive Angular Velocity Setting
    int ki_w = 0; //Integral Angular Velocity Setting
 };
 
 RobotData robot;
+
+float feedForwardScaler = 10000;
 
 float vCurr = 0; //Current Velocity
 float vDest = 0; //Destinatoin Velocity
@@ -44,8 +46,8 @@ int angleErrCounter = 0;
 
 unsigned long lastTime; //Last update for PID Controller
 
-float wheel_base = 0.1; // Space between Wheels mm
-float wheel_dia = 0.065; //Wheel diminsion mm
+float wheel_base = 100; // Space between Wheels mm
+float wheel_dia = 65; //Wheel diminsion mm
 
 double vVal, angleVal;
 
@@ -69,11 +71,19 @@ int counterRight = 0;
 int counterLeft = 0;
 int rightMotorDirection = 1; // Forward
 int leftMotorDirection = 1; // Forward
-float leftRPM = 0;
-float rightRPM = 0;
+
+const int numReadings = 10;
+int readingsRight[numReadings];
+int readingsLeft[numReadings];
+int readingCounter = 0;
 
 void setup () 
 {
+  for (int i = 0; i< numReadings; i++)
+  {
+    readingsLeft[i] = 0;
+    readingsRight[i] = 0;
+  }
   Serial.begin(9600);
   EEBlue.begin(9600);
   robot = RobotData();
@@ -133,9 +143,9 @@ void interuptTimerOne()
   //Serial.print("Counter  Right : ");
   //Serial.println(counterRight);
   
-  leftRPM = (6000.00) * (float(counterLeft) / float(ENCODER_N));
-  rightRPM = (6000.00) * (float(counterRight) / float(ENCODER_N));
-  vCurr = (leftRPM+rightRPM)/2;
+  //leftRPM = (6000.00) * (float(counterLeft) / float(ENCODER_N));
+  //rightRPM = (6000.00) * (float(counterRight) / float(ENCODER_N));
+  //vCurr = (leftRPM+rightRPM)/2;
   //Serial.print("Motor Left RPM : ");
   //Serial.println(leftRPM);
 
@@ -149,37 +159,37 @@ void interuptTimerOne()
 void sendDeviceValues()
 {
   String message = "< 1, ";
-  message.concat(robot.name)
-  message.concat(", ")
-  message.concat(robot.battery)
-  message.concat(", ")
-  message.concat(robot.azimuth)
-  message.concat(", ")
-  message.concat(robot.directionArray[0])
-  message.concat(", ")
-  message.concat(robot.directionArray[1])
-  message.concat(", ")
-  message.concat(robot.directionArray[2])
-  message.concat(">")
-  EEBlue.write(message);
+  message.concat(robot.name);
+  message.concat(", ");
+  message.concat(robot.battery);
+  message.concat(", ");
+  message.concat(robot.azimuth);
+  message.concat(", ");
+  message.concat(robot.directionArray[0]);
+  message.concat(", ");
+  message.concat(robot.directionArray[1]);
+  message.concat(", ");
+  message.concat(robot.directionArray[2]);
+  message.concat(">");
+  //EEBlue.write(message);
 }
 
 void sendPIDValues()
 {
   String message = "< 2, ";
-  message.concat(robot.kp_v)
-  message.concat(", ")
-  message.concat(robot.kd_v)
-  message.concat(", ")
-  message.concat(robot.ki_v)
-  message.concat(", ")
-  message.concat(robot.kp_w)
-  message.concat(", ")
-  message.concat(robot.kd_w)
-  message.concat(", ")
-  message.concat(robot.ki_w)
-  message.concat(">")
-  EEBlue.write(message);
+  message.concat(robot.kp_v);
+  message.concat(", ");
+  message.concat(robot.kd_v);
+  message.concat(", ");
+  message.concat(robot.ki_v);
+  message.concat(", ");
+  message.concat(robot.kp_w);
+  message.concat(", ");
+  message.concat(robot.kd_w);
+  message.concat(", ");
+  message.concat(robot.ki_w);
+  message.concat(">");
+  //EEBlue.write(message);
 }
 
 void bluetoothSerialization(){
@@ -296,7 +306,7 @@ void updatePID()
   double angleErr = findShortestPath(angleCurr, angleDest);
   angleErrSum += (angleErr * timeChange);
   double wErrDot = (angleErr-angleErrLast) / timeChange;
-  angleVal = float(robot.kp_w/10)*(angleErr) + float(robot.kd_w/10)*(wErrDot) + float(robot.ki_w/10)*(angleErrSum);
+  angleVal = float(float(robot.kp_w))*(angleErr) + float(float(robot.kd_w))*(wErrDot) + float(float(robot.ki_w))*(angleErrSum);
   angleErrLast = angleErr;
 
   lastTime = now;
@@ -312,12 +322,44 @@ void savePIDs()
   //EEPROM.write(ADDRESS_OFFSET + strlen(str) + 1, ‘\0’);
 }
 
+
 void motorControls()
 {
-  int vr_dest = (2*vVal+(angleVal*wheel_base))/wheel_dia;
-  int vl_dest = (2*vVal-(angleVal*wheel_base))/wheel_dia;
-  driveArdumoto(MOTOR_A, vr_dest);
-  driveArdumoto(MOTOR_B, vl_dest);
+  int velocity = (vDest * -feedForwardScaler);
+  //Serial.println("velocity");
+  //Serial.println(velocity);
+  //Serial.println("AngleVal");
+  //Serial.println(angleVal);
+
+  int vr_dest = (2*velocity+(angleVal*wheel_base))/wheel_dia;
+  int vl_dest = (2*velocity-(angleVal*wheel_base))/wheel_dia;
+
+  //Serial.println("vr_dest");
+  //Serial.println(vr_dest);
+  //Serial.println("vl_dest");
+  //Serial.println(vl_dest);
+
+  int leftTotal = 0;
+  int rightTotal = 0;
+  int averageRight = 0;
+  int averageLeft = 0;
+  readingsRight[readingCounter] = vr_dest;
+  readingsLeft[readingCounter] = vl_dest;
+  for (int i = 0; i < numReadings; i++)
+  {
+    rightTotal += readingsRight[i];
+    leftTotal += readingsLeft[i];
+  }
+  averageLeft = leftTotal / readingCounter;
+  averageRight = rightTotal / readingCounter;
+  readingCounter = readingCounter + 1;
+  if (readingCounter >= numReadings)
+  {
+    readingCounter = 0;
+  }
+
+  driveArdumoto(MOTOR_A, averageRight);
+  driveArdumoto(MOTOR_B, averageLeft);
 }
 
 void driveArdumoto(byte motor, int spd)
@@ -345,6 +387,7 @@ void driveArdumoto(byte motor, int spd)
   if (spd < 30){
     spd = 0;
   }
+  Serial.println(spd);
   if (motor == MOTOR_A)
   {
     digitalWrite(DIRA, dir);
